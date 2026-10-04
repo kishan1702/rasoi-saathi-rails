@@ -58,6 +58,13 @@ function normArgs(args, t) {
   for (const [k, def] of Object.entries(props)) {
     if (typeof out[k] === 'string' && (def.type === 'object' || def.type === 'array')) { try { out[k] = JSON.parse(out[k]); } catch (e) { /* leave */ } }
   }
+  // Generic: rebuild object params whose sub-fields were flattened to top-level keys (e.g. order_amount -> value, currency).
+  for (const [k, def] of Object.entries(props)) {
+    if (def.type === 'object' && def.properties && out[k] === undefined) {
+      const subs = Object.keys(def.properties);
+      if (subs.some((s) => out[s] !== undefined && !props[s])) { out[k] = {}; for (const s of subs) if (out[s] !== undefined && !props[s]) { out[k][s] = out[s]; delete out[s]; } }
+    }
+  }
   if (t.name === 'rasoi_policy_evaluate') {
     // Some platforms flatten nested object parameters into top-level keys; rebuild mandate and cart.
     const CART = ['merchant', 'items', 'substitutions', 'total_paise', 'delivery_slot'];
