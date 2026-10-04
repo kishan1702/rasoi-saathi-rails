@@ -31,7 +31,7 @@ async function gnani(tool, a) {
   try {
     if (tool === 'gnani_tts_synthesize') {
       const r = await fetch('https://api.vachana.ai/api/v1/tts/inference', { method: 'POST', headers,
-        body: JSON.stringify({ text: a.text, language_code: a.language_code, voice: a.voice || 'simran' }) });
+        body: JSON.stringify({ text: a.text, model: 'timbre-v2.5', language: a.language_code, voice: a.voice || 'Nalini', speed: 1.0, audio_config: { sample_rate: 24000, num_channels: 1, sample_width: 2, encoding: 'linear_pcm', container: 'wav' } }) });
       const ct = r.headers.get('content-type') || '';
       if (ct.includes('json')) return r.ok ? ok(await r.json()) : err({ status: r.status, body: await r.json().catch(() => null) });
       const buf = Buffer.from(await r.arrayBuffer());
@@ -39,10 +39,12 @@ async function gnani(tool, a) {
     }
     let audio;
     if (/^https?:\/\//.test(a.audio_file_id)) { const f = await fetch(a.audio_file_id); audio = Buffer.from(await f.arrayBuffer()); }
-    else return err({ error: 'audio_file_id must be a fetchable https URL (from tg_get_file) in this deployment' });
+    else if (a.audio_base64) audio = Buffer.from(a.audio_base64, 'base64');
+    else return err({ error: 'audio_file_id must be a fetchable https URL (from tg_get_file) or pass audio_base64' });
     const fd = new FormData();
     fd.append('audio_file', new Blob([audio]), 'voice.ogg');
     fd.append('language_code', a.language_code);
+    fd.append('format', 'transcribe');
     const h2 = { 'X-API-Key-ID': key, Authorization: 'Bearer ' + key };
     const r = await fetch('https://api.vachana.ai/stt/v3', { method: 'POST', headers: h2, body: fd });
     const body = await r.json().catch(() => null);
