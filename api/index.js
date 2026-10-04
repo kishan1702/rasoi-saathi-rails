@@ -45,12 +45,29 @@ function keyOk(req, query) {
 }
 const scrub = (s) => { let o = String(s); for (const k of ['TELEGRAM_BOT_TOKEN', 'GNANI_API_KEY', 'RASOI_API_KEY', 'GMAIL_REFRESH_TOKEN', 'GMAIL_CLIENT_SECRET']) { const v = (process.env[k] || '').trim(); if (v) o = o.split(v).join('***'); } return o; };
 
+
+// Platforms differ in how they pass tool arguments: wrapped, or nested objects as JSON strings. Normalise before validating.
+function normArgs(args, t) {
+  let a = args && typeof args === 'object' ? args : {};
+  if (typeof args === 'string') { try { a = JSON.parse(args); } catch (e) { a = {}; } }
+  for (const w of ['arguments', 'params', 'input', 'body', 'payload', 'data']) {
+    if (a[w] && typeof a[w] === 'object' && !Array.isArray(a[w]) && !((t.inputSchema && t.inputSchema.properties) || {})[w]) a = { ...a[w], ...Object.fromEntries(Object.entries(a).filter(([k]) => k !== w)) };
+  }
+  const props = (t.inputSchema && t.inputSchema.properties) || {};
+  const out = { ...a };
+  for (const [k, def] of Object.entries(props)) {
+    if (typeof out[k] === 'string' && (def.type === 'object' || def.type === 'array')) { try { out[k] = JSON.parse(out[k]); } catch (e) { /* leave */ } }
+  }
+  return out;
+}
+
 async function callTool(name, args, ctx) {
   const t = TOOLS.find((x) => x.name === name);
   if (!t) return fail(404, 'unknown_tool', `Unknown tool ${name}`);
   if (REAL.has(t.group) && !KEY()) return fail(503, 'server_key_not_set', 'Real connectors are disabled until RASOI_API_KEY is set on the server, because this endpoint is public.');
+  args = normArgs(args, t);
   const miss = ((t.inputSchema && t.inputSchema.required) || []).filter((k) => args[k] === undefined || args[k] === null);
-  if (miss.length) return fail(400, 'missing_param', `Missing required field(s): ${miss.join(', ')}`);
+  if (miss.length) return fail(400, 'missing_param', `Missing required field(s): ${miss.join(', ')}. Received keys: ${Object.keys(args).join(', ') || '(none)'}`);
   try { return await HANDLERS[name](args, ctx); }
   catch (e) {
     const timeout = e && (e.name === 'AbortError' || /abort/i.test(String(e.message)));
