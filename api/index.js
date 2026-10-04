@@ -58,6 +58,19 @@ function normArgs(args, t) {
   for (const [k, def] of Object.entries(props)) {
     if (typeof out[k] === 'string' && (def.type === 'object' || def.type === 'array')) { try { out[k] = JSON.parse(out[k]); } catch (e) { /* leave */ } }
   }
+  if (t.name === 'rasoi_policy_evaluate') {
+    // Some platforms flatten nested object parameters into top-level keys; rebuild mandate and cart.
+    const CART = ['merchant', 'items', 'substitutions', 'total_paise', 'delivery_slot'];
+    if (out.cart === undefined && (out.merchant !== undefined || out.items !== undefined || out.total_paise !== undefined)) {
+      out.cart = {}; for (const k of CART) if (out[k] !== undefined) { out.cart[k] = out[k]; delete out[k]; }
+      if (typeof out.cart.total_paise === 'string' && out.cart.total_paise.trim() !== '' && !Number.isNaN(Number(out.cart.total_paise))) out.cart.total_paise = Number(out.cart.total_paise);
+    }
+    if (out.mandate === undefined) {
+      const RESERVED = new Set(['cart', 'approved_cart', 'health_flags', ...CART]);
+      const m = {}; for (const [k, v] of Object.entries(out)) if (!RESERVED.has(k)) { m[k] = v; delete out[k]; }
+      if (Object.keys(m).length) out.mandate = m;
+    }
+  }
   return out;
 }
 
