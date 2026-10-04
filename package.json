@@ -1,0 +1,7 @@
+{
+  "name": "rasoi-saathi-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP + REST tool server for the Rasoi Saathi kitchen agent (mocks and real pass-throughs)",
+  "scripts": { "test": "node test/smoke.js" }
+}
