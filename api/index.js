@@ -5,6 +5,7 @@ const spec = require('../lib/tools.json');
 const dlv = require('../lib/delhivery');
 const pine = require('../lib/pine');
 const rasoi = require('../lib/rasoi');
+const household = require('../lib/household');
 const real = require('../lib/real');
 const store = require('../lib/store');
 const { fail } = require('../lib/util');
@@ -26,6 +27,12 @@ const TOOLS = [];
 for (const c of spec.connectors) for (const t of c.tools) {
   TOOLS.push({ group: c.connector, name: t.name, description: (MOCK_TAG[c.connector] || '') + t.description, inputSchema: t.input_schema, annotations: { readOnlyHint: READ_ONLY.test(t.name), openWorldHint: REAL.has(c.connector) } });
 }
+Object.assign(HANDLERS, { household_inventory_check: household.inventoryCheck, household_recipes_list: household.recipesList, household_members_list: household.membersList });
+TOOLS.push(
+  { group: 'rasoi_capabilities', name: 'household_inventory_check', description: 'Read the household pantry from the shared sheet. Use for "do we have X", "what is in stock at home", "what is running low". Pass item to filter, or omit to list everything. Returns qty, unit, available (qty minus reserved), source, confidence, updated_at.', inputSchema: { type: 'object', properties: { item: { type: 'string' } } }, annotations: { readOnlyHint: true, openWorldHint: true } },
+  { group: 'rasoi_capabilities', name: 'household_recipes_list', description: 'List the household recipes with whether each can be cooked from the current pantry and what is missing. Use for "what can I cook tonight". Optional health_filter (text matched against health_tags, e.g. diabetic). Always check member health rules before suggesting.', inputSchema: { type: 'object', properties: { health_filter: { type: 'string' } } }, annotations: { readOnlyHint: true, openWorldHint: true } },
+  { group: 'rasoi_capabilities', name: 'household_members_list', description: 'List household members with role, can_approve, language and health rules from the shared sheet.', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true, openWorldHint: true } }
+);
 const GROUP_ALIAS = { gnani: ['gnani'], pine: ['pine_labs'], pine_labs: ['pine_labs'], delhivery: ['delhivery_mock'], delhivery_mock: ['delhivery_mock'], rasoi: ['rasoi_capabilities'], rasoi_capabilities: ['rasoi_capabilities'], telegram: ['telegram'], sheets: ['google_sheets'], google_sheets: ['google_sheets'], gmail: ['gmail'], mocks: ['pine_labs', 'delhivery_mock', 'rasoi_capabilities'], real: ['gnani', 'telegram', 'google_sheets', 'gmail'] };
 
 const KEY = () => (process.env.RASOI_API_KEY || '').trim();
